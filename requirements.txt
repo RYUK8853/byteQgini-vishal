@@ -1,0 +1,12 @@
+Flask
+faiss-cpu
+numpy
+langchain
+langchain-core
+langchain-community
+langchain-huggingface
+langchain-ollama
+sentence-transformers
+pypdf
+langchain-text-splitters
+
