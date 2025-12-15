@@ -50,8 +50,7 @@ The system is optimized to achieve **~1–3 second response latency on CPU** and
 
 🧠 High-Level Architecture
 --------------------------
-
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   PDFs (static)     ↓  Chunking + Embeddings (once)     ↓  FAISS HNSW (fast ANN search)     ↓  Relevant document chunk     ↓  llama.cpp (cached system + dataset memory)     ↓  Answer (offline, private, fast)   `
+   PDFs (static)     ↓  Chunking + Embeddings (once)     ↓  FAISS HNSW (fast ANN search)     ↓  Relevant document chunk     ↓  llama.cpp (cached system + dataset memory)     ↓  Answer (offline, private, fast)   `
 
 ⚙️ How It Works
 ---------------
@@ -96,7 +95,7 @@ Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQL
 📁 Project Structure
 --------------------
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   byteQgini/  ├─ app.py                    # Core application (Flask + RAG engine)  ├─ data/                     # Place your PDF files here  ├─ models/  │   └─ llama.gguf            # GGUF model for llama.cpp  ├─ precomputed_data/  │   ├─ index.faiss           # FAISS HNSW index  │   └─ docs.pkl              # Serialized document chunks  ├─ templates/  │   └─ index.html            # Chat UI  ├─ requirements.txt  └─ README.md   `
+`   byteQgini/  ├─ app.py                    # Core application (Flask + RAG engine)  ├─ data/                     # Place your PDF files here  ├─ models/  │   └─ llama.gguf            # GGUF model for llama.cpp  ├─ precomputed_data/  │   ├─ index.faiss           # FAISS HNSW index  │   └─ docs.pkl              # Serialized document chunks  ├─ templates/  │   └─ index.html            # Chat UI  ├─ requirements.txt  └─ README.md   `
 
 🔌 API Endpoints
 ----------------
@@ -111,7 +110,7 @@ Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQL
 *   Returns a plain-text response grounded in documents
     
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   curl "http://127.0.0.1:5000/get?msg=what is covered in these documents"   `
+`   curl "http://127.0.0.1:5000/get?msg=what is covered in these documents"   `
 
 ### POST /get
 
@@ -125,27 +124,27 @@ Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQL
 
 ### 1️⃣ Clone Repository
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   git clone https://github.com/byteQ-services/byteQgini.git  cd byteQgini   `
+`   git clone https://github.com/byteQ-services/byteQgini.git  cd byteQgini   `
 
 ### 2️⃣ Create Virtual Environment
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   python3.11 -m venv .venv  source .venv/bin/activate   `
+`   python3.11 -m venv .venv  source .venv/bin/activate   `
 
 ### 3️⃣ Install Dependencies
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   pip install -r requirements.txt   `
+`   pip install -r requirements.txt   `
 
 ### 4️⃣ Download GGUF Model
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   mkdir -p models  wget -O models/llama.gguf \  https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf   `
+`   mkdir -p models  wget -O models/llama.gguf \  https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf   `
 
 ### 5️⃣ Run Application
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   python app.py   `
+`   python app.py   `
 
 Open:
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   http://127.0.0.1:5000   `
+`   http://127.0.0.1:5000   `
 
 🧰 Tech Stack
 -------------
