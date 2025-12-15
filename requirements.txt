@@ -1,12 +1,11 @@
-Flask
+flask
 faiss-cpu
 numpy
 langchain
-langchain-core
 langchain-community
+langchain-core
+langchain-text-splitters
 langchain-huggingface
 langchain-ollama
 sentence-transformers
 pypdf
-langchain-text-splitters
-

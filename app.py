@@ -1,237 +1,241 @@
 import os
-import time
 import faiss
 import numpy as np
 import pickle
 import threading
 from flask import Flask, render_template, request
+
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_ollama import OllamaLLM
 from langchain_community.docstore.in_memory import InMemoryDocstore
 
-app = Flask(__name__)
+from llama_cpp import Llama
 
-# Paths to precomputed data
+# =========================
+# CONFIG
+# =========================
+DATA_FOLDER = "./data/"
 INDEX_PATH = "precomputed_data/index.faiss"
 DOCS_PATH = "precomputed_data/docs.pkl"
-PROCESSED_FILES_PATH = "precomputed_data/processed_files.pkl"
-DATA_FOLDER = "./data/"
 
-# Initialize variables
+MODEL_PATH = "models/llama.gguf"   # GGUF model path
+CTX_SIZE = 4096
+MAX_TOKENS = 256                   # 🔑 latency control
+
+os.makedirs("precomputed_data", exist_ok=True)
+
+# =========================
+# APP
+# =========================
+app = Flask(__name__)
+
+# =========================
+# GLOBALS
+# =========================
 library = None
 docs = []
+index_lock = threading.Lock()
 
+GREETINGS = {"hi", "hello", "hey", "namaste", "hola"}
+FAREWELLS = {"bye", "goodbye", "see you", "farewell"}
+
+# =========================
+# EMBEDDINGS (ONE INSTANCE)
+# =========================
+embeddings = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+)
+
+# =========================
+# STATIC KNOWLEDGE (STEP 3)
+# =========================
+def build_dataset_summary(docs, max_chars=1500):
+    if not docs:
+        return "No documents loaded."
+
+    joined = " ".join(d.page_content for d in docs[:10])
+    _ = joined[:max_chars]
+
+    return """
+DATASET OVERVIEW:
+The uploaded documents are static reference PDFs.
+They contain factual information intended for question answering.
+The assistant must answer strictly from these documents.
+If an answer is not present, say "I don't know".
+"""
+
+# =========================
+# LOAD LLM (STEP 4)
+# =========================
+llm = Llama(
+    model_path=MODEL_PATH,
+    n_ctx=CTX_SIZE,
+    n_threads=os.cpu_count(),
+    n_batch=512,
+    verbose=False
+)
+
+# =========================
+# INITIALIZATION
+# =========================
 def initialize():
     global library, docs
 
-    # Check if the data folder is empty
-    if not any(file.endswith(".pdf") for file in os.listdir(DATA_FOLDER)):
-        print("Data folder is empty. Regenerating from scratch...")
-        docs = []
-        regenerate_data()
+    if not os.path.exists(DATA_FOLDER):
+        os.makedirs(DATA_FOLDER)
+
+    # Load precomputed index if available
+    if os.path.exists(INDEX_PATH) and os.path.exists(DOCS_PATH):
+        docs = pickle.load(open(DOCS_PATH, "rb"))
+        index = faiss.read_index(INDEX_PATH)
+        docstore = InMemoryDocstore(dict(enumerate(docs)))
+        library = FAISS(
+            embedding_function=embeddings,
+            docstore=docstore,
+            index=index,
+            index_to_docstore_id={i: i for i in range(len(docs))}
+        )
+        print("Loaded existing FAISS index.")
         return
 
-    # Check if precomputed data exists
-    if os.path.exists(INDEX_PATH) and os.path.exists(DOCS_PATH):
-        try:
-            with open(DOCS_PATH, 'rb') as f:
-                docs = pickle.load(f)
-            index = faiss.read_index(INDEX_PATH)
-            embedding_function = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-            docstore = InMemoryDocstore(dict(enumerate(docs)))
-            index_to_docstore_id = {i: i for i in range(len(docs))}
-            library = FAISS(embedding_function=embedding_function, 
-                            docstore=docstore, 
-                            index=index, 
-                            index_to_docstore_id=index_to_docstore_id)
-            print("Loaded precomputed data successfully.")
-        except (EOFError, pickle.UnpicklingError):
-            print("Error loading precomputed data. Regenerating...")
-            regenerate_data()
-    else:
-        regenerate_data()
-
-    # Check for new files on initialization
-    process_new_files()
+    regenerate_data()
 
 def regenerate_data():
     global library, docs
-    
-    # Load and split all PDF documents in the data folder
-    all_docs = []
-    processed_files = []
-    for filename in os.listdir(DATA_FOLDER):
-        if filename.endswith(".pdf"):
-            file_path = os.path.join(DATA_FOLDER, filename)
-            loader = PyPDFLoader(file_path)
-            pages = loader.load_and_split()
-            all_docs.extend(pages)
-            processed_files.append(filename)
 
-    # Concatenate the text from all pages
-    raw_text = " ".join([page.page_content for page in all_docs if page.page_content])
+    pages = []
+    for file in os.listdir(DATA_FOLDER):
+        if file.endswith(".pdf"):
+            loader = PyPDFLoader(os.path.join(DATA_FOLDER, file))
+            pages.extend(loader.load())
 
-    # Split text into manageable chunks
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=100)
-    text_chunks = text_splitter.split_text(raw_text)
+    raw_text = " ".join(p.page_content for p in pages if p.page_content)
 
-    # Create Document objects for each chunk
-    docs = [Document(page_content=chunk) for chunk in text_chunks]
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=700,
+        chunk_overlap=80
+    )
 
-    # Initialize HuggingFace embeddings model
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    chunks = splitter.split_text(raw_text)
+    docs = [Document(page_content=c) for c in chunks]
 
-    # Create FAISS index from document embeddings
-    index = faiss.IndexFlatL2(embeddings.embed_query(docs[0].page_content).shape[0])
-    for doc in docs:
-        index.add(np.array([embeddings.embed_query(doc.page_content)]))
+    texts = [d.page_content for d in docs]
+    vectors = np.array(embeddings.embed_documents(texts)).astype("float32")
 
-    embedding_function = embeddings
+    dim = vectors.shape[1]
+
+    # 🔥 STEP 2: HNSW FAISS
+    index = faiss.IndexHNSWFlat(dim, 32)
+    index.hnsw.efConstruction = 200
+    index.hnsw.efSearch = 32
+    index.add(vectors)
+
     docstore = InMemoryDocstore(dict(enumerate(docs)))
-    index_to_docstore_id = {i: i for i in range(len(docs))}
-    library = FAISS(embedding_function=embedding_function, 
-                    docstore=docstore, 
-                    index=index, 
-                    index_to_docstore_id=index_to_docstore_id)
+    library = FAISS(
+        embedding_function=embeddings,
+        docstore=docstore,
+        index=index,
+        index_to_docstore_id={i: i for i in range(len(docs))}
+    )
 
-    # Save precomputed data for future use
-    with open(DOCS_PATH, 'wb') as f:
-        pickle.dump(docs, f)
-    with open(PROCESSED_FILES_PATH, 'wb') as f:
-        pickle.dump(processed_files, f)
-    faiss.write_index(library.index, INDEX_PATH)
-    print("Precomputed data generated and saved successfully.")
+    pickle.dump(docs, open(DOCS_PATH, "wb"))
+    faiss.write_index(index, INDEX_PATH)
 
-def process_new_files():
-    global library, docs
+    print("FAISS index regenerated.")
 
-    # Load the list of already processed files
-    if os.path.exists(PROCESSED_FILES_PATH):
-        with open(PROCESSED_FILES_PATH, 'rb') as f:
-            processed_files = pickle.load(f)
-    else:
-        processed_files = []
+# =========================
+# SEARCH (FAST + GUARDED)
+# =========================
+def search_faiss_index(question):
+    with index_lock:
+        q_emb = np.array(embeddings.embed_query(question)).astype("float32")
+        D, I = library.index.search(q_emb.reshape(1, -1), 1)
 
-    print("Checking for new files...")
+        # Hard out-of-scope guard
+        if I[0][0] == -1 or D[0][0] > 1.0:
+            return None
 
-    # Initialize HuggingFace embeddings model
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    
-    # Track newly added documents
-    new_docs = []
-    for filename in os.listdir(DATA_FOLDER):
-        if filename.endswith(".pdf") and filename not in processed_files:
-            print(f"New file detected: {filename}")
-            file_path = os.path.join(DATA_FOLDER, filename)
+        return library.docstore._dict[I[0][0]].page_content
 
-            # Load and split the PDF file
-            loader = PyPDFLoader(file_path)
-            pages = loader.load_and_split()
-            new_docs.extend(pages)
-            processed_files.append(filename)
-
-            # Embed and add new documents to the index
-            for page in pages:
-                if page.page_content:  # Ensure there's valid text content
-                    doc = Document(page_content=page.page_content)
-                    docs.append(doc)
-                    embedding = embeddings.embed_query(doc.page_content)
-                    library.index.add(np.array([embedding]))
-                    print(f"Embedded and added to index: {page.page_content[:30]}...")
-
-    # Update the docstore and index_to_docstore_id
-    if new_docs:
-        docstore = InMemoryDocstore(dict(enumerate(docs)))
-        index_to_docstore_id = {i: i for i in range(len(docs))}
-        library.docstore = docstore
-        library.index_to_docstore_id = index_to_docstore_id
-
-        # Save updated docs and processed files
-        with open(DOCS_PATH, 'wb') as f:
-            pickle.dump(docs, f)
-        with open(PROCESSED_FILES_PATH, 'wb') as f:
-            pickle.dump(processed_files, f)
-        faiss.write_index(library.index, INDEX_PATH)
-
-        print("New files processed and saved successfully.")
-    else:
-        print("No new files to process.")
-
-# Function to periodically check for new files
-def periodic_check():
-    while True:
-        process_new_files()
-        time.sleep(1440)  # Check every 24 hours
-
-# Initialize the system
+# =========================
+# STARTUP SEQUENCE
+# =========================
 initialize()
 
-# Start periodic checks in a background thread
-thread = threading.Thread(target=periodic_check, daemon=True)
-thread.start()
+# STEP 3: Static dataset memory
+DATASET_SUMMARY = build_dataset_summary(docs)
 
-# Initialize Ollama LLM model
-ollama_model = OllamaLLM(model='llama3.2')
+# STEP 5: Static prefix (KV-cache friendly)
+STATIC_PREFIX = f"""
+You are a private offline assistant.
 
-# List of greetings and farewells
-greetings = ["hi", "hello", "hey", "namaste", "hola"]
-farewells = ["bye", "goodbye", "see you", "farewell", "no"]
+{DATASET_SUMMARY}
 
-# Function to search FAISS index and return the most relevant text chunk
-def search_faiss_index(library, question):
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    question_embedding = embeddings.embed_query(question)
-    D, I = library.index.search(np.array([question_embedding]), 1)  # k=1 for the closest match
-    doc_id = I[0][0]
-    return library.docstore._dict[doc_id].page_content if doc_id != -1 else None
+RULES:
+- Answer only from the context.
+- If the answer is not present, say "I don't know".
+- Be concise and factual.
+"""
 
-# Function to refine answer with Ollama LLM
-def refine_answer_with_ollama(model, context, question):
-    if not context:
-        return "I'm sorry, but I couldn't find an answer to your question."
-    
-    template = """
-    You are an expert assistant. Based on the context provided, answer the question concisely and in a more human form. If you think the question is out of context, simply reply that you don't know the answer.
+# 🔥 STEP 5: Pre-warm KV cache ONCE
+llm(STATIC_PREFIX, max_tokens=1)
 
-    Context:
-    {Context}
+# =========================
+# ANSWERING (STEP 5)
+# =========================
+def refine_answer(context, question):
+    if not context or len(context.strip()) < 50:
+        return "I can only answer questions based on the uploaded documents."
 
-    Question: {question}
+    prompt = f"""
+CONTEXT:
+{context}
 
-    Answer:
-    """
-    input_prompt = template.format(Context=context, question=question)
-    result = model.invoke(input=input_prompt)
-    return result
+QUESTION:
+{question}
 
+ANSWER:
+"""
+
+    output = llm(
+        STATIC_PREFIX + prompt,
+        max_tokens=MAX_TOKENS,
+        stop=["\n\n"]
+    )
+
+    return output["choices"][0]["text"].strip()
+
+# =========================
+# ROUTES
+# =========================
 @app.route("/")
 def home():
     return render_template("index.html")
 
 @app.route("/get", methods=["GET", "POST"])
-def get_bot_response():
-    if request.method == "POST":
-        userText = request.form.get('msg').strip().lower()
-    else:
-        userText = request.args.get('msg').strip().lower()
-    
-    # Handle greetings
-    if userText in greetings:
-        return "Hello! How can I assist you today?"
-    
-    # Handle farewells
-    if userText in farewells:
-        return "Goodbye! Have a great day!"
+def chat():
+    q = (request.form.get("msg") or request.args.get("msg") or "").strip()
+    if not q:
+        return "Ask a question."
 
-    # Handle normal queries
-    context = search_faiss_index(library, userText)
-    response = refine_answer_with_ollama(ollama_model, context, userText)
-    
-    return response
+    q_lower = q.lower()
 
+    if q_lower in GREETINGS:
+        return "Hello! How can I help you today?"
+    if q_lower in FAREWELLS:
+        return "Goodbye! Have a great day."
+
+    context = search_faiss_index(q)
+    if not context:
+        return "I can only answer questions based on the uploaded documents."
+
+    return refine_answer(context, q)
+
+# =========================
+# RUN
+# =========================
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False, use_reloader=False)
