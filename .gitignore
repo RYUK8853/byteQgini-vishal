@@ -1,0 +1,13 @@
+# Generated RAG data
+precomputed_data/
+*.faiss
+*.pkl
+*.npy
+
+# Notebooks (optional)
+*.ipynb
+
+# Python cache / env
+__pycache__/
+.venv/
+
