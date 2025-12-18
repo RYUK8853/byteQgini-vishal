@@ -1,7 +1,8 @@
 🧠 byteQgini — Offline Document Intelligence Engine (Fast Local RAG)
 ====================================================================
 
-![](https://img.shields.io/badge/Build-Stable-00C853?style=for-the-badge) ![](https://img.shields.io/badge/Version-1.1.0-2962FF?style=for-the-badge) ![](https://img.shields.io/badge/Runtime-CPU_Only-blue?style=for-the-badge) ![](https://img.shields.io/badge/Vector_DB-FAISS_HNSW-orange?style=for-the-badge) ![](https://img.shields.io/badge/Embeddings-MiniLM--L6--v2-purple?style=for-the-badge) ![](https://img.shields.io/badge/LLM-llama.cpp_GGUF-red?style=for-the-badge) ![](https://img.shields.io/badge/Privacy-100%_Local-green?style=for-the-badge) ![](https://img.shields.io/badge/License-Open_Source-green?style=for-the-badge)
+![](https://img.shields.io/badge/Build-Stable-00C853?style=for-the-badge) ![](https://img.shields.io/badge/Version-1.1.0-2962FF?style=for-the-badge) ![](https://img.shields.io/badge/Runtime-CPU_Only-blue?style=for-the-badge) ![](https://img.shields.io/badge/Vector_DB-FAISS_HNSW-orange?style=for-the-badge) ![](https://img.shields.io/badge/Embeddings-MiniLM--L6--v2-purple?style=for-the-badge) ![](https://img.shields.io/badge/LLM-llama.cpp_GGUF-red?style=for-the-badge) ![](https://img.shields.io/badge/Privacy-100%_Local-green?style=for-the-badge) ![](https://img.shields.io/badge/License-Open_Source-green?style=for-the-badge)![](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+
 
 🚀 Overview
 -----------
@@ -224,3 +225,19 @@ Most RAG systems:
 ----------------
 
 Issues, discussions, and pull requests are welcome.This project is built to be **extended, audited, and trusted**.
+
+📄 License
+----------
+
+This project is licensed under the **MIT License**.
+
+You are free to:
+
+- Use the software commercially
+- Modify and distribute it
+- Include it in proprietary or closed-source systems
+
+As long as the original copyright and license notice
+are included.
+
+See the full license text in the [LICENSE.txt](LICENSE.txt) file.
